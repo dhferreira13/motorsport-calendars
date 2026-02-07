@@ -1,24 +1,28 @@
 import requests
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import sys
 
 URL = "https://ergast.com/api/f1/2026.json"
 OUTPUT_FILE = "f1_2026_brt.ics"
 
 response = requests.get(URL, timeout=20)
 
-if response.status_code != 200 or not response.text.strip().startswith("{"):
-    raise RuntimeError(
-        f"Falha ao obter dados da F1 2026. "
-        f"Status: {response.status_code}"
-    )
+# Se não houver JSON válido, apenas sair sem erro
+if (
+    response.status_code != 200
+    or not response.headers.get("Content-Type", "").startswith("application/json")
+):
+    print("ℹ️ Calendário F1 2026 ainda não disponível. Nenhuma atualização feita.")
+    sys.exit(0)
 
 data = response.json()
 
 races = data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
 
 if not races:
-    raise RuntimeError("Calendário F1 2026 ainda não disponível na fonte oficial.")
+    print("ℹ️ Nenhuma corrida encontrada para F1 2026 ainda.")
+    sys.exit(0)
 
 with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
     f.write("BEGIN:VCALENDAR\n")
@@ -64,6 +68,7 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
 
     f.write("END:VCALENDAR\n")
 
-print("✅ Arquivo f1_2026_brt.ics gerado com sucesso.")
+print("✅ Calendário F1 2026 atualizado com sucesso.")
+
 
 
