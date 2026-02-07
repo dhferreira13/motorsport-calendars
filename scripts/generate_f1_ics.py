@@ -69,5 +69,9 @@ END:VEVENT
 
 ics += "\nEND:VCALENDAR"
 
+import os
+
+os.makedirs("calendars", exist_ok=True)
+
 with open("calendars/f1_2026_brt.ics", "w", encoding="utf-8") as f:
     f.write(ics)
