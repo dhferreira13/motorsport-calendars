@@ -1,1 +1,30 @@
+name: Atualizar calendário F1 2026
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * MON"
+
+permissions:
+  contents: write
+
+jobs:
+  update-calendar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Atualizar timestamp do calendário
+        run: |
+          sed -i "s/LAST-MODIFIED:.*/LAST-MODIFIED:$(date -u +'%Y%m%dT%H%M%SZ')/" f1_2026_brt.ics || echo "Inserindo timestamp"
+
+      - name: Commit e push se houver mudanças
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add f1_2026_brt.ics
+          git diff --cached --quiet || git commit -m "Atualiza calendário F1 2026 automaticamente"
+          git push
 
