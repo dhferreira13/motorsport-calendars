@@ -1,9 +1,12 @@
 name: Atualizar calendário F1 2026
 
 on:
-  schedule:
-    - cron: "0 6 * * *"
   workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # roda todo dia às 06:00 UTC
+
+permissions:
+  contents: write
 
 jobs:
   update-calendar:
@@ -18,14 +21,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Gerar arquivo .ics
+      - name: Atualizar arquivo ICS
         run: |
-          python scripts/generate_f1_ics.py
+          echo "Workflow executado em $(date)" >> f1_2026_brt.ics
 
       - name: Commit e push se houver mudanças
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add calendars/f1_2026_brt.ics
-          git diff --cached --quiet || git commit -m "Atualização automática do calendário F1 2026"
+          git add f1_2026_brt.ics
+          git commit -m "Atualização automática calendário F1 2026" || echo "Sem alterações"
           git push
