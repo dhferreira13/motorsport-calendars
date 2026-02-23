@@ -1,38 +1,75 @@
-name: Atualizar calendário F1 automaticamente
+import requests
+from datetime import datetime, timedelta
+import pytz
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 6 * * 1" # toda segunda-feira às 06:00 UTC
+SEASON = 2026
+URL = f"https://ergast.com/api/f1/{SEASON}.json"
 
-permissions:
-  contents: write
+response = requests.get(URL, timeout=10)
 
-jobs:
-  update-calendar:
-    runs-on: ubuntu-latest
+if response.status_code != 200:
+    print("Erro ao acessar API")
+    exit(0)
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+data = response.json()
 
-      - name: Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+races = (
+    data.get("MRData", {})
+        .get("RaceTable", {})
+        .get("Races", [])
+)
 
-      - name: Instalar dependências
-        run: |
-          pip install requests pytz
+brt = pytz.timezone("America/Sao_Paulo")
 
-      - name: Gerar calendário F1 2026
-        run: |
-          python scripts/generate_f1_ics.py
+ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//F1 Calendar//EN",
+    "CALSCALE:GREGORIAN"
+]
 
-      - name: Commit e push se houver mudanças
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add f1_2026_brt.ics
-          git diff --cached --quiet || git commit -m "Atualiza calendário F1 2026 automaticamente"
-          git push
+if not races:
+    print("Nenhuma corrida encontrada para a temporada.")
+else:
+    for race in races:
+        date_str = race.get("date")
+        time_str = race.get("time", "00:00:00Z")
+
+        try:
+            utc_dt = datetime.fromisoformat(
+                f"{date_str}T{time_str.replace('Z','')}"
+            )
+            utc_dt = pytz.utc.localize(utc_dt)
+        except Exception:
+            continue
+
+        start = utc_dt.astimezone(brt)
+        end = start + timedelta(hours=2)
+
+        ics.extend([
+            "BEGIN:VEVENT",
+            f"UID:{race['round']}@f1-calendar",
+            f"DTSTAMP:{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}",
+            f"DTSTART:{start.strftime('%Y%m%dT%H%M%S')}",
+            f"DTEND:{end.strftime('%Y%m%dT%H%M%S')}",
+            f"SUMMARY:{race['raceName']}",
+            f"DESCRIPTION:{race['Circuit']['circuitName']}",
+            "BEGIN:VALARM",
+            "TRIGGER:-P1D",
+            "ACTION:DISPLAY",
+            "DESCRIPTION:Corrida amanhã",
+            "END:VALARM",
+            "BEGIN:VALARM",
+            "TRIGGER:-PT30M",
+            "ACTION:DISPLAY",
+            "DESCRIPTION:Corrida em 30 minutos",
+            "END:VALARM",
+            "END:VEVENT"
+        ])
+
+ics.append("END:VCALENDAR")
+
+with open("f1_2026_brt.ics", "w", encoding="utf-8") as f:
+    f.write("\n".join(ics))
+
+print("Calendário gerado com sucesso.")
